@@ -7,7 +7,7 @@ import random
 import os, json
 from tqdm import tqdm
 import time
-from global_methods import run_chatgpt
+from global_methods import run_chatgpt, qa_category5_option_text
 from task_eval.rag_utils import get_embeddings
 import tiktoken
 import numpy as np
@@ -48,7 +48,7 @@ Use single-quote characters for named entities and double-quote characters for e
 
 # If no information is available to answer the question, write 'No information available'.
 
-CONV_START_PROMPT = "Below is a conversation between two people: {} and {}. The conversation takes place over multiple days and the date of each conversation is wriiten at the beginning of the conversation.\n\n"
+CONV_START_PROMPT = "Below is a conversation between two people: {} and {}. The conversation takes place over multiple days and the date of each conversation is written at the beginning of the conversation.\n\n"
 
 
 def process_ouput(text):
@@ -234,8 +234,15 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                 break
 
             qa = in_data['qa'][i]
-            
+
+            answer_text = qa_category5_option_text(qa) if qa['category'] == 5 else None
             if prediction_key not in out_data['qa'][i] or args.overwrite:
+                if qa['category'] == 5 and answer_text is None:
+                    print(
+                        "Warning: Missing 'answer' or 'adversarial_answer' for category-5 QA: %s"
+                        % qa.get("question", "")
+                    )
+                    continue
                 include_idxs.append(i)
             else:
                 continue
@@ -245,11 +252,11 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
             elif qa['category'] == 5:
                 question = qa['question'] + " Select the correct answer: (a) {} (b) {}. "
                 if random.random() < 0.5:
-                    question = question.format('Not mentioned in the conversation', qa['answer'])
-                    answer = {'a': 'Not mentioned in the conversation', 'b': qa['answer']}
+                    question = question.format('Not mentioned in the conversation', answer_text)
+                    answer = {'a': 'Not mentioned in the conversation', 'b': answer_text}
                 else:
-                    question = question.format(qa['answer'], 'Not mentioned in the conversation')
-                    answer = {'b': 'Not mentioned in the conversation', 'a': qa['answer']}
+                    question = question.format(answer_text, 'Not mentioned in the conversation')
+                    answer = {'b': 'Not mentioned in the conversation', 'a': answer_text}
 
                 cat_5_idxs.append(len(questions))
                 questions.append(question)
@@ -314,9 +321,10 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                     answers = process_ouput(answer.strip())
                     break
 
-                except Exception as e:
-                    print('Error at trial %s/3' % trials, e)
-                    raise ValueError
+                except json.JSONDecodeError as e:
+                    print('Parse error at trial %s/3' % trials, e)
+                    if trials >= 3:
+                        raise
             
             for k, idx in enumerate(include_idxs):
                 try:
@@ -331,7 +339,7 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                             out_data['qa'][idx][prediction_key] = str(answers[str(k)]).replace('(a)', '').replace('(b)', '').strip()
                         except:
                             out_data['qa'][idx][prediction_key] = ', '.join([str(n) for n in list(answers[str(k)].values())])
-                except:
+                except json.JSONDecodeError:
                     try:
                         answers = json.loads(answer.strip())
                         if k in cat_5_idxs:
@@ -339,7 +347,7 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                             out_data['qa'][idx][prediction_key] = predicted_answer
                         else:
                             out_data['qa'][idx][prediction_key] = answers[k].replace('(a)', '').replace('(b)', '').strip()
-                    except:
+                    except json.JSONDecodeError:
                         if k in cat_5_idxs:
                             predicted_answer = get_cat_5_answer(answer.strip(), cat_5_answers[cat_5_idxs.index(k)])
                             out_data['qa'][idx][prediction_key] = predicted_answer

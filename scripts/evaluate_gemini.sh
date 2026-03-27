@@ -1,7 +1,7 @@
 # sets necessary environment variables
 source scripts/env.sh
 
-# Evaluate Gemini Pro
+# Evaluate Gemini (default: current flash model; legacy gemini-pro-1.0 maps to API model in evaluate_qa.py)
 python3 task_eval/evaluate_qa.py \
     --data-file $DATA_FILE_PATH --out-file $OUT_DIR/$QA_OUTPUT_FILE \
-    --model gemini-pro-1.0 --batch-size 20
+    --model gemini-2.5-flash --batch-size 20

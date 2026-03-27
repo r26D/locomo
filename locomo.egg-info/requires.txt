@@ -1,6 +1,6 @@
 openai>=1.0
 anthropic>=0.40
-google-generativeai>=0.8
+google-genai>=1.0
 numpy>=1.26
 pillow>=10
 torch>=2.2
@@ -17,5 +17,3 @@ huggingface-hub>=0.23
 
 [eval-hf:sys_platform != "darwin"]
 bitsandbytes>=0.43
-
-[rag]

@@ -30,7 +30,8 @@ export LOCOMO_OPENAI_API_KEY=
 # BLIP image captions (--blip-caption): outputs can differ slightly across CUDA vs Apple MPS vs CPU.
 # Omit --blip-caption for maximum cross-machine consistency when images are not required.
 
-# Google API Key (project-specific)
+# Google API key for Gemini via the `google-genai` SDK (project-specific).
+# Also accepted if unset: GOOGLE_API_KEY or GEMINI_API_KEY.
 export LOCOMO_GOOGLE_API_KEY=
 
 # Anthropic API Key (project-specific)

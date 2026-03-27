@@ -9,6 +9,7 @@ from transformers import AutoTokenizer
 import transformers
 import torch
 import huggingface_hub
+from global_methods import qa_category5_option_text
 
 from transformers import (
     AutoTokenizer,
@@ -83,7 +84,7 @@ GEMMA_INSTRUCT_PROMPT = """
 {}<end_of_turn>
 """
 
-CONV_START_PROMPT = "Below is a conversation between two people: {} and {}. The conversation takes place over multiple days and the date of each conversation is wriiten at the beginning of the conversation.\n\n"
+CONV_START_PROMPT = "Below is a conversation between two people: {} and {}. The conversation takes place over multiple days and the date of each conversation is written at the beginning of the conversation.\n\n"
 
 ANS_TOKENS_PER_QUES = 50
 
@@ -241,8 +242,15 @@ def get_hf_answers(in_data, out_data, args, pipeline, model_name):
             if i>=len(in_data['qa']):
                 break
             qa = in_data['qa'][i]
-            # skip if already predicted and overwrite is set to False            
+            answer_text = qa_category5_option_text(qa) if qa['category'] == 5 else None
+            # skip if already predicted and overwrite is set to False
             if '%s_prediction' % args.model not in qa or args.overwrite:
+                if qa['category'] == 5 and answer_text is None:
+                    print(
+                        "Warning: Missing 'answer' or 'adversarial_answer' for category-5 QA: %s"
+                        % qa.get("question", "")
+                    )
+                    continue
                 include_idxs.append(i)
             else:
                 print("Skipping -->", qa['question'])
@@ -254,11 +262,11 @@ def get_hf_answers(in_data, out_data, args, pipeline, model_name):
             elif qa['category'] == 5:
                 question = qa['question'] + " (a) {} (b) {}. Select the correct answer by writing (a) or (b)."
                 if random.random() < 0.5:
-                    question = question.format('No information available', qa['answer'])
-                    answer = {'a': 'No information available', 'b': qa['answer']}
+                    question = question.format('No information available', answer_text)
+                    answer = {'a': 'No information available', 'b': answer_text}
                 else:
-                    question = question.format(qa['answer'], 'No information available')
-                    answer = {'b': 'No information available', 'a': qa['answer']}
+                    question = question.format(answer_text, 'No information available')
+                    answer = {'b': 'No information available', 'a': answer_text}
                 cat_5_idxs.append(len(questions))
                 questions.append(question)
                 cat_5_answers.append(answer)

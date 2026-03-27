@@ -4,12 +4,43 @@ import time
 import sys
 import os
 
-import google.generativeai as genai
+from google import genai as google_genai
+from google.genai import types as genai_types
 from anthropic import Anthropic
 from openai import OpenAI
 from openai import APIError, APIConnectionError, RateLimitError, InternalServerError
 
 _openai_client = None
+_gemini_client = None
+
+
+def qa_category5_option_text(qa):
+    """Distractor text for category-5 prompts; prefer adversarial_answer (e.g. locomo10), then answer."""
+    if qa.get("adversarial_answer") is not None:
+        return qa["adversarial_answer"]
+    if qa.get("answer") is not None:
+        return qa["answer"]
+    return None
+
+
+def _gemini_api_key():
+    return (
+        os.environ.get("LOCOMO_GOOGLE_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+    )
+
+
+def get_gemini_client():
+    global _gemini_client
+    if _gemini_client is None:
+        key = _gemini_api_key()
+        if not key:
+            raise ValueError(
+                "Set LOCOMO_GOOGLE_API_KEY (or GOOGLE_API_KEY / GEMINI_API_KEY) for Gemini."
+            )
+        _gemini_client = google_genai.Client(api_key=key)
+    return _gemini_client
 
 
 def _get_openai_client() -> OpenAI:
@@ -45,8 +76,7 @@ def set_anthropic_key():
 
 
 def set_gemini_key():
-
-    genai.configure(api_key=os.environ['LOCOMO_GOOGLE_API_KEY'])
+    pass
 
 
 def set_openai_key():
@@ -106,11 +136,19 @@ def run_claude(query, max_new_tokens, model_name):
     return message.content[0].text
 
 
-def run_gemini(model, content: str, max_tokens: int = 0):
+def run_gemini(client, model_name: str, content: str, max_tokens: int = 0):
 
     try:
-        response = model.generate_content(content)
-        return response.text
+        config = None
+        if max_tokens and max_tokens > 0:
+            config = genai_types.GenerateContentConfig(max_output_tokens=max_tokens)
+        response = client.models.generate_content(
+            model=model_name,
+            contents=content,
+            config=config,
+        )
+        text = getattr(response, "text", None)
+        return text if text is not None else ""
     except Exception as e:
         print(f'{type(e).__name__}: {e}')
         return None

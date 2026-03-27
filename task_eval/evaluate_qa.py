@@ -3,9 +3,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os, json
-from tqdm import tqdm
 import argparse
-from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
+from global_methods import (
+    set_openai_key,
+    set_anthropic_key,
+    set_gemini_key,
+    get_gemini_client,
+)
 from task_eval.evaluation import eval_question_answering
 from task_eval.evaluation_stats import analyze_aggr_acc
 from task_eval.gpt_utils import get_gpt_answers
@@ -13,8 +17,19 @@ from task_eval.claude_utils import get_claude_answers
 from task_eval.gemini_utils import get_gemini_answers
 from task_eval.hf_llm_utils import init_hf_model, get_hf_answers
 
-import numpy as np
-import google.generativeai as genai
+
+CATEGORY_MAPPING = {
+    1: "Multi-hop",
+    2: "Temporal",
+    3: "Open-domain",
+    4: "Single-hop",
+    5: "Adversarial",
+}
+
+_GEMINI_MODEL_ALIASES = {
+    "gemini-pro-1.0": "gemini-2.5-flash",
+}
+
 
 def parse_args():
 
@@ -41,6 +56,8 @@ def main():
 
     print("******************  Evaluating Model %s ***************" % args.model)
 
+    gemini_client = None
+
     if 'gpt' in args.model:
         # set openai API key
         set_openai_key()
@@ -50,13 +67,15 @@ def main():
         set_anthropic_key()
 
     elif 'gemini' in args.model:
-        # set openai API key
         set_gemini_key()
-        if args.model == "gemini-pro-1.0":
-            model_name = "models/gemini-1.0-pro-latest"
+        gemini_client = get_gemini_client()
+        args.gemini_api_model = _GEMINI_MODEL_ALIASES.get(args.model, args.model)
+        if args.gemini_api_model != args.model:
+            print(
+                "Warning: --model %s maps to API model %s"
+                % (args.model, args.gemini_api_model)
+            )
 
-        gemini_model = genai.GenerativeModel(model_name)
-    
     elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
         hf_pipeline, hf_model_name = init_hf_model(args)
 
@@ -89,7 +108,7 @@ def main():
         elif 'claude' in args.model:
             answers = get_claude_answers(data, out_data, prediction_key, args)
         elif 'gemini' in args.model:
-            answers = get_gemini_answers(gemini_model, data, out_data, prediction_key, args)
+            answers = get_gemini_answers(gemini_client, data, out_data, prediction_key, args)
         elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
             answers = get_hf_answers(data, out_data, args, hf_pipeline, hf_model_name)
         else:
@@ -101,6 +120,10 @@ def main():
             answers['qa'][i][model_key + '_f1'] = round(exact_matches[i], 3)
             if args.use_rag and len(recall) > 0:
                 answers['qa'][i][model_key + '_recall'] = round(recall[i], 3)
+            category_num = answers['qa'][i].get('category', 0)
+            answers['qa'][i]['category_name'] = CATEGORY_MAPPING.get(
+                category_num, "Unknown-%s" % category_num
+            )
 
         out_samples[data['sample_id']] = answers
 
@@ -115,4 +138,3 @@ def main():
 
 
 main()
-

@@ -7,7 +7,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: openai>=1.0
 Requires-Dist: anthropic>=0.40
-Requires-Dist: google-generativeai>=0.8
+Requires-Dist: google-genai>=1.0
 Requires-Dist: numpy>=1.26
 Requires-Dist: pillow>=10
 Requires-Dist: torch>=2.2
@@ -21,7 +21,6 @@ Requires-Dist: peft>=0.11; extra == "eval-hf"
 Requires-Dist: sentencepiece>=0.2; extra == "eval-hf"
 Requires-Dist: huggingface-hub>=0.23; extra == "eval-hf"
 Requires-Dist: bitsandbytes>=0.43; sys_platform != "darwin" and extra == "eval-hf"
-Provides-Extra: rag
 Dynamic: license-file
 
 # Data and Code for the **ACL 2024** Paper "**Evaluating Very Long-Term Conversational Memory of LLM Agents**"
@@ -55,6 +54,9 @@ The dataset can be found in the ```./data/locomo10.json``` file in this reposito
 ## Code
 
 Configuration variables like API keys, output directories etc. are set in `scripts/env.sh` and run at the beginning of all other scripts.
+
+### Python environment
+Dependencies are declared in `pyproject.toml`. From the repo root, run `uv sync` (see [uv](https://github.com/astral-sh/uv)). For Hugging Face evaluation extras (accelerate, peft; bitsandbytes is omitted on macOS), use `uv sync --extra eval-hf`. The previous conda export is kept as `requirements-conda-legacy.txt` for reference. Gemini evaluation uses the [`google-genai`](https://pypi.org/project/google-genai/) client (not the older `google-generativeai` package). Optional API keys (`LOCOMO_OPENAI_API_KEY`, `LOCOMO_GOOGLE_API_KEY`, `LOCOMO_ANTHROPIC_API_KEY`, `LOCOMO_HF_TOKEN`), model overrides, and a note on BLIP captions across GPU backends are documented in `scripts/env.sh`.
 
 ### Generate *very* long-term conversations between two LLM-agents with pre-assigned personalities using our LLM-based generative framework
 The code to generate conversations is available in `scripts/generate_conversations.sh` and can be run as follows:

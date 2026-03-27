@@ -12,6 +12,23 @@ ps = PorterStemmer()
 
 LENGTH_THRESHOLD = 5
 
+CATEGORY_MAPPING = {
+    1: "Multi-hop",
+    2: "Temporal",
+    3: "Open-domain",
+    4: "Single-hop",
+    5: "Adversarial",
+}
+
+
+def _qa_gold_answer(line):
+    if "answer" in line:
+        return line["answer"]
+    if "adversarial_answer" in line:
+        return line["adversarial_answer"]
+    return None
+
+
 class SimpleTokenizer(object):
     ALPHA_NUM = r'[\p{L}\p{N}\p{M}]+'
     NON_WS = r'[^\p{Z}\p{C}]'
@@ -196,10 +213,14 @@ def eval_question_answering(qas, eval_key='prediction', metric='f1'):
     answer_lengths = []
     for i, line in enumerate(qas):
         # line = json.loads(line)
+        gold = _qa_gold_answer(line)
+        if gold is None:
+            print("Warning: Missing 'answer' and 'adversarial_answer' in QA line; using empty gold.")
+            gold = ""
         if type(line[eval_key]) == list:
-            answer = line['answer']
+            answer = gold
         else:
-            answer = str(line['answer'])
+            answer = str(gold)
         if line['category'] == 3:
             answer = answer.split(';')[0].strip()
         
