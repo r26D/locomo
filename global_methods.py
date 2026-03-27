@@ -46,8 +46,7 @@ def set_anthropic_key():
 
 def set_gemini_key():
 
-    # Or use `os.getenv('GOOGLE_API_KEY')` to fetch an environment variable.
-    genai.configure(api_key=os.environ['GOOGLE_API_KEY'])
+    genai.configure(api_key=os.environ['LOCOMO_GOOGLE_API_KEY'])
 
 
 def set_openai_key():
@@ -91,7 +90,7 @@ def run_claude(query, max_new_tokens, model_name):
         model_name = os.environ.get("LOCOMO_CLAUDE_HAIKU_MODEL", "claude-3-5-haiku-20241022")
 
     client = Anthropic(
-    api_key=os.environ.get("ANTHROPIC_API_KEY"),
+    api_key=os.environ.get("LOCOMO_ANTHROPIC_API_KEY"),
     )
     message = client.messages.create(
         max_tokens=max_new_tokens,

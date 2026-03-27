@@ -31,7 +31,7 @@ The dataset can be found in the ```./data/locomo10.json``` file in this reposito
 Configuration variables like API keys, output directories etc. are set in `scripts/env.sh` and run at the beginning of all other scripts.
 
 ### Python environment
-Dependencies are declared in `pyproject.toml`. From the repo root, run `uv sync` (see [uv](https://github.com/astral-sh/uv)). For Hugging Face evaluation extras (accelerate, peft; bitsandbytes is omitted on macOS), use `uv sync --extra eval-hf`. The previous conda export is kept as `requirements-conda-legacy.txt` for reference. Optional OpenAI (`LOCOMO_OPENAI_API_KEY` and model overrides), Anthropic model IDs, and a note on BLIP captions across GPU backends are documented in `scripts/env.sh`.
+Dependencies are declared in `pyproject.toml`. From the repo root, run `uv sync` (see [uv](https://github.com/astral-sh/uv)). For Hugging Face evaluation extras (accelerate, peft; bitsandbytes is omitted on macOS), use `uv sync --extra eval-hf`. The previous conda export is kept as `requirements-conda-legacy.txt` for reference. Optional API keys (`LOCOMO_OPENAI_API_KEY`, `LOCOMO_GOOGLE_API_KEY`, `LOCOMO_ANTHROPIC_API_KEY`, `LOCOMO_HF_TOKEN`), model overrides, and a note on BLIP captions across GPU backends are documented in `scripts/env.sh`.
 
 ### Generate *very* long-term conversations between two LLM-agents with pre-assigned personalities using our LLM-based generative framework
 The code to generate conversations is available in `scripts/generate_conversations.sh` and can be run as follows:

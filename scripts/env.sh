@@ -30,11 +30,11 @@ export LOCOMO_OPENAI_API_KEY=
 # BLIP image captions (--blip-caption): outputs can differ slightly across CUDA vs Apple MPS vs CPU.
 # Omit --blip-caption for maximum cross-machine consistency when images are not required.
 
-# Google API Key
-export GOOGLE_API_KEY=
+# Google API Key (project-specific)
+export LOCOMO_GOOGLE_API_KEY=
 
-# Anthropic API Key
-export ANTHROPIC_API_KEY=
+# Anthropic API Key (project-specific)
+export LOCOMO_ANTHROPIC_API_KEY=
 
-# HuggingFace Token
-export HF_TOKEN=
+# HuggingFace Token (project-specific)
+export LOCOMO_HF_TOKEN=
