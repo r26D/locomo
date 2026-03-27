@@ -13,6 +13,7 @@ from generative_agents.memory_utils import *
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 from global_methods import run_chatgpt, run_chatgpt_with_examples, set_openai_key
+from device_utils import get_torch_device
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,12 +48,12 @@ def parse_args():
     return args
 
 
-def get_blip_caption(img_file, model, processor):
+def get_blip_caption(img_file, model, processor, device):
 
     raw_image = Image.open(img_file).convert('RGB')
     # conditional image captioning
     text = "a photography of"
-    inputs = processor(raw_image, text, return_tensors="pt").to("cuda")
+    inputs = processor(raw_image, text, return_tensors="pt").to(device)
     out = model.generate(**inputs)
     caption = processor.decode(out[0], skip_special_tokens=True)
     return caption
@@ -399,7 +400,7 @@ def get_session(agent_a, agent_b, args, prev_date_time_string='', curr_date_time
                 output['query'] = image_search_query
                 output['caption'] = photo_caption
                 if args.blip_caption:
-                    output['blip_caption'] = get_blip_caption(os.path.join(img_dir, file_names[0]), captioner, img_processor).replace('photography', 'photo')
+                    output['blip_caption'] = get_blip_caption(os.path.join(img_dir, file_names[0]), captioner, img_processor, blip_device).replace('photography', 'photo')
 
         output["speaker"] = agent_a["name"] if curr_speaker == 0 else agent_b['name']
         text_replaced_caption = replace_captions(output["text"], args)
@@ -517,9 +518,10 @@ def main():
         agent_a, agent_b = load_agents(args)
 
         if args.blip_caption: # load an image captioner
-            # init_model
+            blip_device = get_torch_device()
+            logging.info("BLIP device: %s", blip_device)
             img_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-            captioner = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to("cuda")
+            captioner = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(blip_device)
         else:
             img_processor = None
             captioner = None

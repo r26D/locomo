@@ -7,6 +7,13 @@ import os, json
 import torch
 from tqdm import tqdm
 from global_methods import get_openai_embedding, set_openai_key, run_chatgpt_with_examples
+from device_utils import get_torch_device
+
+
+def _to_device(batch, device):
+    if isinstance(batch, dict):
+        return {k: v.to(device) for k, v in batch.items()}
+    return batch.to(device)
 
 
 
@@ -35,10 +42,12 @@ def mean_pooling(token_embeddings, mask):
 
 def init_context_model(retriever):
 
+    device = get_torch_device()
+
     if retriever == 'dpr':
         from transformers import DPRConfig, DPRContextEncoder, DPRQuestionEncoder, DPRQuestionEncoderTokenizer, DPRContextEncoderTokenizer
         context_tokenizer = DPRContextEncoderTokenizer.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-        context_model = DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base").cuda()
+        context_model = DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base").to(device)
         context_model.eval()
         return context_tokenizer, context_model
 
@@ -46,7 +55,7 @@ def init_context_model(retriever):
 
         from transformers import AutoTokenizer, AutoModel
         context_tokenizer = AutoTokenizer.from_pretrained('facebook/contriever')
-        context_model = AutoModel.from_pretrained('facebook/contriever').cuda()
+        context_model = AutoModel.from_pretrained('facebook/contriever').to(device)
         context_model.eval()
         return context_tokenizer, context_model
 
@@ -54,7 +63,8 @@ def init_context_model(retriever):
 
         from transformers import AutoTokenizer, AutoModel
         context_tokenizer = AutoTokenizer.from_pretrained('facebook/dragon-plus-query-encoder')
-        context_model = AutoModel.from_pretrained('facebook/dragon-plus-context-encoder').cuda()
+        context_model = AutoModel.from_pretrained('facebook/dragon-plus-context-encoder').to(device)
+        context_model.eval()
         return context_tokenizer, context_model
 
     elif retriever == 'openai':
@@ -67,27 +77,29 @@ def init_context_model(retriever):
     
 def init_query_model(retriever):
 
+    device = get_torch_device()
+
     if retriever == 'dpr':
         from transformers import DPRConfig, DPRContextEncoder, DPRQuestionEncoder, DPRQuestionEncoderTokenizer, DPRContextEncoderTokenizer
         question_tokenizer = DPRQuestionEncoderTokenizer.from_pretrained("facebook/dpr-question_encoder-single-nq-base")
-        question_model = DPRQuestionEncoder.from_pretrained("facebook/dpr-question_encoder-single-nq-base").cuda()
+        question_model = DPRQuestionEncoder.from_pretrained("facebook/dpr-question_encoder-single-nq-base").to(device)
         question_model.eval()
         return question_tokenizer, question_model
 
     elif retriever == 'contriever':
 
         from transformers import AutoTokenizer, AutoModel
-        question_tokenizer = context_tokenizer
-        question_model = AutoModel.from_pretrained('facebook/contriever').cuda()
+        question_tokenizer = AutoTokenizer.from_pretrained('facebook/contriever')
+        question_model = AutoModel.from_pretrained('facebook/contriever').to(device)
         question_model.eval()
         return question_tokenizer, question_model
 
     elif retriever == 'dragon':
 
         from transformers import AutoTokenizer, AutoModel
-        context_tokenizer = AutoTokenizer.from_pretrained('facebook/dragon-plus-query-encoder')
-        question_model = AutoModel.from_pretrained('facebook/dragon-plus-query-encoder').cuda()
-        question_tokenizer = context_tokenizer
+        question_tokenizer = AutoTokenizer.from_pretrained('facebook/dragon-plus-query-encoder')
+        question_model = AutoModel.from_pretrained('facebook/dragon-plus-query-encoder').to(device)
+        question_model.eval()
         return question_tokenizer, question_model
 
     elif retriever == 'openai':
@@ -108,30 +120,27 @@ def get_embeddings(retriever, inputs, mode='context'):
     
     all_embeddings = []
     batch_size = 24
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    device = get_torch_device()
     with torch.no_grad():
         for i in tqdm(range(0, len(inputs), batch_size)):
-            # print(input_ids.shape)
+            batch = inputs[i:(i+batch_size)]
             if retriever == 'dpr':
-                input_ids = tokenizer(inputs[i:(i+batch_size)], return_tensors="pt", padding=True)["input_ids"].cuda()
+                input_ids = tokenizer(batch, return_tensors="pt", padding=True)["input_ids"].to(device)
                 embeddings = encoder(input_ids).pooler_output.detach()
-                # print(embeddings.shape)
                 all_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
             elif retriever == 'contriever':
-                # Compute token embeddings
-                ctx_input = tokenizer(inputs[i:(i+batch_size)], padding=True, truncation=True, return_tensors='pt')
-                # print(ctx_input.keys())
-                # input_ids = context_tokenizer(contexts, return_tensors="pt", padding=True)["input_ids"].cuda()
+                ctx_input = tokenizer(batch, padding=True, truncation=True, return_tensors='pt')
+                ctx_input = _to_device(ctx_input, device)
                 outputs = encoder(**ctx_input)
-                embeddings = mean_pooling(outputs[0], inputs['attention_mask'])
+                embeddings = mean_pooling(outputs[0], ctx_input['attention_mask'])
                 all_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
             elif retriever == 'dragon':
-                ctx_input = tokenizer(inputs[i:(i+batch_size)], padding=True, truncation=True, return_tensors='pt').to(device)
+                ctx_input = tokenizer(batch, padding=True, truncation=True, return_tensors='pt')
+                ctx_input = _to_device(ctx_input, device)
                 embeddings = encoder(**ctx_input).last_hidden_state[:, 0, :]
-                # all_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
                 all_embeddings.append(embeddings)
             elif retriever == 'openai':
-                all_embeddings.append(torch.tensor(get_openai_embedding(inputs)))
+                all_embeddings.append(torch.tensor(get_openai_embedding(batch)))
             else:
                 raise ValueError
 
@@ -142,6 +151,7 @@ def get_context_embeddings(retriever, data, context_tokenizer, context_encoder, 
 
     context_embeddings = []
     context_ids = []
+    device = get_torch_device()
     for i in tqdm(range(1,20), desc="Getting context encodings"):
         contexts = []
         if 'session_%s' % i in data:
@@ -162,22 +172,19 @@ def get_context_embeddings(retriever, data, context_tokenizer, context_encoder, 
 
                 context_ids.append(dialog["dia_id"])
             with torch.no_grad():
-                # print(input_ids.shape)
                 if retriever == 'dpr':
-                    input_ids = context_tokenizer(contexts, return_tensors="pt", padding=True)["input_ids"].cuda()
+                    input_ids = context_tokenizer(contexts, return_tensors="pt", padding=True)["input_ids"].to(device)
                     embeddings = context_encoder(input_ids).pooler_output.detach()
-                    # print(embeddings.shape)
                     context_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
                 elif retriever == 'contriever':
-                    # Compute token embeddings
                     inputs = context_tokenizer(contexts, padding=True, truncation=True, return_tensors='pt')
-                    print(inputs.keys())
-                    # input_ids = context_tokenizer(contexts, return_tensors="pt", padding=True)["input_ids"].cuda()
+                    inputs = _to_device(inputs, device)
                     outputs = context_encoder(**inputs)
                     embeddings = mean_pooling(outputs[0], inputs['attention_mask'])
                     context_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
                 elif retriever == 'dragon':
                     ctx_input = context_tokenizer(contexts, padding=True, truncation=True, return_tensors='pt')
+                    ctx_input = _to_device(ctx_input, device)
                     embeddings = context_encoder(**ctx_input).last_hidden_state[:, 0, :]
                     context_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
                 elif retriever == 'openai':

@@ -1,6 +1,5 @@
 import os, json
 import time
-import openai
 import logging
 from datetime import datetime
 from global_methods import run_chatgpt

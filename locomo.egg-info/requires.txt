@@ -1,0 +1,21 @@
+openai>=1.0
+anthropic>=0.40
+google-generativeai>=0.8
+numpy>=1.26
+pillow>=10
+torch>=2.2
+transformers>=4.40
+tiktoken>=0.7
+tqdm>=4.66
+icrawler>=0.6
+
+[eval-hf]
+accelerate>=0.30
+peft>=0.11
+sentencepiece>=0.2
+huggingface-hub>=0.23
+
+[eval-hf:sys_platform != "darwin"]
+bitsandbytes>=0.43
+
+[rag]

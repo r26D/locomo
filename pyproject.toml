@@ -1,0 +1,38 @@
+[project]
+name = "locomo"
+version = "0.0.0"
+description = "LoCoMo benchmark code and data (ACL 2024)"
+readme = "README.MD"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0",
+    "anthropic>=0.40",
+    "google-generativeai>=0.8",
+    "numpy>=1.26",
+    "pillow>=10",
+    "torch>=2.2",
+    "transformers>=4.40",
+    "tiktoken>=0.7",
+    "tqdm>=4.66",
+    "icrawler>=0.6",
+]
+
+[project.optional-dependencies]
+eval-hf = [
+    "accelerate>=0.30",
+    "peft>=0.11",
+    "sentencepiece>=0.2",
+    "huggingface-hub>=0.23",
+    "bitsandbytes>=0.43; sys_platform != 'darwin'",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["global_methods", "device_utils"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["generative_agents*", "task_eval*"]

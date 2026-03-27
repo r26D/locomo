@@ -345,6 +345,12 @@ def init_hf_model(args):
 
     if args.use_4bit:
 
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "4-bit quantized inference (bitsandbytes) requires NVIDIA CUDA. "
+                "Run without --use-4bit on Apple Silicon or CPU, or use a CUDA GPU."
+            )
+
         print("Using 4-bit inference")
         tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
         tokenizer.pad_token_id = tokenizer.eos_token_id    # for open-ended generation

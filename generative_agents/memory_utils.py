@@ -1,9 +1,7 @@
 import os, json
-import time
-import openai
 import logging
 from datetime import datetime
-from global_methods import run_json_trials
+from global_methods import run_json_trials, get_openai_embedding
 import numpy as np
 import pickle as pkl
 import random
@@ -24,12 +22,14 @@ Write a concise and short list of all possible OBSERVATIONS about each speaker t
 """
 
 
-RETRIEVAL_MODEL = "text-embedding-ada-002" # contriever dragon dpr
+def _retrieval_model():
+    return os.environ.get("LOCOMO_OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 
-def get_embedding(texts, model="text-embedding-ada-002"):
-   texts = [text.replace("\n", " ") for text in texts]
-   return np.array([openai.Embedding.create(input = texts, model=model)['data'][i]['embedding'] for i in range(len(texts))])
+def get_embedding(texts, model=None):
+    if model is None:
+        model = _retrieval_model()
+    return get_openai_embedding(texts, model=model)
 
 
 def get_session_facts(args, agent_a, agent_b, session_idx, return_embeddings=True):
