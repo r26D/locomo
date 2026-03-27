@@ -15,7 +15,7 @@ _openai_client = None
 def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        _openai_client = OpenAI(api_key=os.environ["LOCOMO_OPENAI_API_KEY"])
     return _openai_client
 
 
@@ -52,7 +52,7 @@ def set_gemini_key():
 
 def set_openai_key():
     global _openai_client
-    _openai_client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    _openai_client = OpenAI(api_key=os.environ['LOCOMO_OPENAI_API_KEY'])
 
 
 def run_json_trials(query, num_gen=1, num_tokens_request=1000, 

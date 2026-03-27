@@ -15,8 +15,8 @@ SESS_SUMM_OUTPUT_FILE=locomo10_session_summary.json
 # path to folder containing prompts and in-context examples
 PROMPT_DIR=./prompt_examples
 
-# OpenAI API Key
-export OPENAI_API_KEY=
+# OpenAI API Key (project-specific; avoids clashing with a global OPENAI_API_KEY)
+export LOCOMO_OPENAI_API_KEY=
 
 # Optional OpenAI model overrides (modern SDK; defaults are small/cheap models)
 # export LOCOMO_OPENAI_CHAT_MODEL=gpt-4o-mini          # used when code passes model alias "chatgpt"
