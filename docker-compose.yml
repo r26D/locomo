@@ -1,0 +1,30 @@
+# LoCoMo — default data mount is read-only; conversation generation also writes under data/ (e.g.
+# multimodal_dialog outputs, data/msc_personas_all.json when sampling MSC personas). Use a read-write
+# data bind for those flows (see task docker:run-data-rw). Host-visible outputs: ./external_outputs -> /app/outputs.
+#
+# Secrets: prefer a file outside the repo and point Compose at it:
+#   export LOCOMO_COMPOSE_ENV_FILE="$HOME/.config/locomo/secrets.env"
+# Repo-local `.env.docker` is optional convenience only (gitignored).
+#
+# Container user: `task docker:compose-run` exports DOCKER_UID/DOCKER_GID from your host (`id -u` / `id -g`)
+# when unset. For plain `docker compose`, set them yourself or the service falls back to 10000:10000
+# (image `locomo` user). Compose reads these for substitution, not from env_file.
+#
+#   mkdir -p external_outputs
+#   task docker:init   # or create the secrets file yourself
+#   docker compose run --rm locomo bash scripts/evaluate_gpts.sh
+#
+# For scripts that write under ./data/ (e.g. generate_conversations), use a read-write data mount
+# or: task docker:run-data-rw. Persona sampling may also mutate data/msc_personas_all.json.
+
+services:
+  locomo:
+    build: .
+    image: locomo:local
+    working_dir: /app
+    user: "${DOCKER_UID:-10000}:${DOCKER_GID:-10000}"
+    env_file:
+      - ${LOCOMO_COMPOSE_ENV_FILE:-.env.docker}
+    volumes:
+      - ./data:/app/data:ro
+      - ./external_outputs:/app/outputs

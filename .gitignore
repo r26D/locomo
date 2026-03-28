@@ -26,6 +26,9 @@ Thumbs.db
 .env
 .env.*
 
+# Docker host output mount (default in docker-compose / Task)
+external_outputs/
+
 # Tooling
 .pytest_cache/
 .mypy_cache/

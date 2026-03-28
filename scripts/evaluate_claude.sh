@@ -1,7 +1,9 @@
-# sets necessary environment variables
-source scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$(cd "$SCRIPT_DIR/.." && pwd)" || exit 1
+# shellcheck source=scripts/env.sh
+source "$SCRIPT_DIR/env.sh"
 
 # Evaluate Claude-Sonnet
-python3 task_eval/evaluate_qa.py \
+"$LOCOMO_PYTHON" task_eval/evaluate_qa.py \
     --data-file $DATA_FILE_PATH --out-file $OUT_DIR/$QA_OUTPUT_FILE \
     --model claude-sonnet --batch-size 10

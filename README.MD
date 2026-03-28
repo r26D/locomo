@@ -28,7 +28,21 @@ The dataset can be found in the ```./data/locomo10.json``` file in this reposito
 
 ## Code
 
-Configuration variables like API keys, output directories etc. are set in `scripts/env.sh` and run at the beginning of all other scripts.
+Configuration variables like API keys, output directories etc. are set in `scripts/env.sh` and run at the beginning of all other scripts. `scripts/env.sh` **preserves** environment variables that are already set (paths, `LOCOMO_*` keys, `LOCOMO_PYTHON`) so Docker `env_file` and `-e` injection work.
+
+### Docker
+
+Run LoCoMo in a container so dependencies match `uv.lock` (the `uv` binary in the image is **pinned**, not `:latest`) and API keys stay out of the image (pass them at runtime only).
+
+- **Build:** `task docker:build` or `docker build -t locomo:local .`
+- **Setup:** `mkdir -p external_outputs`, then `task docker:init` (or `cp env.docker.example .env.docker`) and add keys. For sensitive keys, prefer a file **outside** the repo and pass `ENV_FILE` / `LOCOMO_COMPOSE_ENV_FILE` / `LOCOMO_DOCKER_ENV_FILE` (see `env.docker.example`).
+- **Run:** `task docker:run -- bash scripts/evaluate_gpts.sh` — writes under `./external_outputs` on the host (mounted as `/app/outputs`; aligns with `OUT_DIR=./outputs` in `scripts/env.sh`). Tasks `docker:run`, `docker:run-data-rw`, and `docker:shell` pass `--user $(id -u):$(id -g)` by default so bind mounts match your host user. Override: `task docker:run DOCKER_USER=10000:10000 -- …`. Override output dir: `task docker:run HOST_OUTPUT_DIR=/path/to/memory_inbox -- …`.
+- **Compose:** `export LOCOMO_COMPOSE_ENV_FILE=…` when using an external secrets file; otherwise ensure `.env.docker` exists (`task docker:init`). `task docker:compose-run` exports host `DOCKER_UID`/`DOCKER_GID` when unset. Plain `docker compose` uses `user: "${DOCKER_UID:-10000}:${DOCKER_GID:-10000}"` in `docker-compose.yml` — export `DOCKER_UID`/`DOCKER_GID` yourself if you are not using the Task wrapper.
+- **Generation under `./data/`:** `task docker:run-data-rw -- bash scripts/generate_conversations.sh`. Persona sampling from MSC may also **mutate** `data/msc_personas_all.json`, so that workflow needs a read-write `data` mount (not `data:ro`).
+- **Without Task:** `scripts/docker-run.sh` builds the image if missing, then runs with the same default `--user $(id -u):$(id -g)`. Optional: `LOCOMO_DOCKER_ENV_FILE`, `LOCOMO_DOCKER_USER` (override), `LOCOMO_DOCKER_IMAGE`.
+- **GPU:** A separate CUDA image is not included yet; on Linux, `uv.lock` may still resolve CUDA-capable PyTorch wheels. Runs use CPU unless you add NVIDIA runtime and a GPU-oriented image later.
+
+Install [Task](https://taskfile.dev/installation/) for `task docker:*` commands.
 
 ### Python environment
 Dependencies are declared in `pyproject.toml`. From the repo root, run `uv sync` (see [uv](https://github.com/astral-sh/uv)). For Hugging Face evaluation extras (accelerate, peft; bitsandbytes is omitted on macOS), use `uv sync --extra eval-hf`. The previous conda export is kept as `requirements-conda-legacy.txt` for reference. Gemini evaluation uses the [`google-genai`](https://pypi.org/project/google-genai/) client (not the older `google-generativeai` package). Optional API keys (`LOCOMO_OPENAI_API_KEY`, `LOCOMO_GOOGLE_API_KEY`, `LOCOMO_ANTHROPIC_API_KEY`, `LOCOMO_HF_TOKEN`), model overrides, and a note on BLIP captions across GPU backends are documented in `scripts/env.sh`.

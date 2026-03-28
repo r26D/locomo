@@ -10,10 +10,8 @@ from generative_agents.conversation_utils import *
 from generative_agents.html_utils import convert_to_chat_html
 from generative_agents.event_utils import *
 from generative_agents.memory_utils import *
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 from global_methods import run_chatgpt, run_chatgpt_with_examples, set_openai_key
-from device_utils import get_torch_device
 
 logging.basicConfig(level=logging.INFO)
 
@@ -517,7 +515,11 @@ def main():
 
         agent_a, agent_b = load_agents(args)
 
-        if args.blip_caption: # load an image captioner
+        if args.blip_caption:  # load torch/transformers only when captioning (avoids import when omitted)
+            from transformers import BlipForConditionalGeneration, BlipProcessor
+
+            from device_utils import get_torch_device
+
             blip_device = get_torch_device()
             logging.info("BLIP device: %s", blip_device)
             img_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")

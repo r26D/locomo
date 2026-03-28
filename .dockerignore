@@ -1,0 +1,40 @@
+# VCS and local env
+.git
+.gitattributes
+.venv
+venv
+env
+
+# Build artifacts / caches
+__pycache__
+**/__pycache__
+*.py[cod]
+*.pyo
+locomo.egg-info
+*.egg-info
+.eggs
+dist
+build
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Secrets (never bake into image)
+.env
+.env.docker
+.env.*
+
+# Local outputs (mount host dirs instead)
+outputs
+external_outputs
+
+# IDE / tooling
+.cursor
+.idea
+
+# Website assets not needed for Python tasks
+static
+index.html
+
+# Large / host-provided dataset (mount ./data at runtime)
+data

@@ -1,0 +1,144 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  IMAGE: locomo:local
+  DOCKERFILE: Dockerfile
+  DATA_MOUNT: "{{.TASKFILE_DIR}}/data:/app/data:ro"
+  HOST_OUTPUT_DIR: ""
+  DOCKER_USER: ""
+  ENV_FILE: "{{.TASKFILE_DIR}}/.env.docker"
+  # GHCR publish (docker pull ghcr.io/r26d/locomo:latest)
+  DOCKER_REGISTRY: ghcr.io/r26d
+  DOCKER_IMAGE_NAME: locomo
+  GIT_SHA_VERSION:
+    sh: git rev-parse --short=7 HEAD
+  UV_VERSION: "0.11.2"
+
+tasks:
+  default:
+    desc: List Docker-related tasks
+    cmds:
+      - task --list
+
+  docker:init:
+    desc: Ensure ENV_FILE exists (copy from env.docker.example if missing)
+    cmds:
+      - test -f "{{.ENV_FILE}}" || cp "{{.TASKFILE_DIR}}/env.docker.example" "{{.ENV_FILE}}"
+
+  docker:build:
+    desc: Build the LoCoMo image (locked deps via uv.lock; uv binary pinned in Dockerfile)
+    cmds:
+      - docker build -f {{.DOCKERFILE}} -t {{.IMAGE}} {{.TASKFILE_DIR}}
+
+  docker:run:
+    desc: Run a command in the container (pass after --). Optional HOST_OUTPUT_DIR, DOCKER_USER (default host uid:gid), ENV_FILE.
+    deps: [docker:init]
+    cmds:
+      - |
+        set -e
+        OUT_HOST="{{.HOST_OUTPUT_DIR}}"
+        [ -z "$OUT_HOST" ] && OUT_HOST="{{.TASKFILE_DIR}}/external_outputs"
+        if [ -n "{{.DOCKER_USER}}" ]; then
+          USER_ARGS="--user {{.DOCKER_USER}}"
+        else
+          USER_ARGS="--user $(id -u):$(id -g)"
+        fi
+        docker run --rm $USER_ARGS \
+          -w /app \
+          -v "{{.DATA_MOUNT}}" \
+          -v "$OUT_HOST:/app/outputs" \
+          --env-file "{{.ENV_FILE}}" \
+          {{.IMAGE}} \
+          {{.CLI_ARGS}}
+
+  docker:run-data-rw:
+    desc: Like docker:run but data volume read-write (e.g. generate_conversations; persona flow may write data/msc_personas_all.json)
+    deps: [docker:init]
+    vars:
+      DATA_MOUNT: "{{.TASKFILE_DIR}}/data:/app/data:rw"
+    cmds:
+      - |
+        set -e
+        OUT_HOST="{{.HOST_OUTPUT_DIR}}"
+        [ -z "$OUT_HOST" ] && OUT_HOST="{{.TASKFILE_DIR}}/external_outputs"
+        if [ -n "{{.DOCKER_USER}}" ]; then
+          USER_ARGS="--user {{.DOCKER_USER}}"
+        else
+          USER_ARGS="--user $(id -u):$(id -g)"
+        fi
+        docker run --rm $USER_ARGS \
+          -w /app \
+          -v "{{.DATA_MOUNT}}" \
+          -v "$OUT_HOST:/app/outputs" \
+          --env-file "{{.ENV_FILE}}" \
+          {{.IMAGE}} \
+          {{.CLI_ARGS}}
+
+  docker:shell:
+    desc: Interactive shell with same mounts as docker:run
+    deps: [docker:init]
+    cmds:
+      - |
+        set -e
+        OUT_HOST="{{.HOST_OUTPUT_DIR}}"
+        [ -z "$OUT_HOST" ] && OUT_HOST="{{.TASKFILE_DIR}}/external_outputs"
+        if [ -n "{{.DOCKER_USER}}" ]; then
+          USER_ARGS="--user {{.DOCKER_USER}}"
+        else
+          USER_ARGS="--user $(id -u):$(id -g)"
+        fi
+        docker run --rm -it $USER_ARGS \
+          -w /app \
+          -v "{{.DATA_MOUNT}}" \
+          -v "$OUT_HOST:/app/outputs" \
+          --env-file "{{.ENV_FILE}}" \
+          {{.IMAGE}} \
+          bash
+
+  docker:compose-run:
+    desc: docker compose run --rm locomo (pass command after --). Set LOCOMO_COMPOSE_ENV_FILE for secrets path.
+    deps: [docker:init]
+    cmds:
+      - |
+        set -e
+        export DOCKER_UID="${DOCKER_UID:-$(id -u)}"
+        export DOCKER_GID="${DOCKER_GID:-$(id -g)}"
+        docker compose -f "{{.TASKFILE_DIR}}/docker-compose.yml" run --rm locomo {{.CLI_ARGS}}
+
+  build_docker:
+    desc: Build image for GHCR (tags latest, git SHA, uv-VERSION) with BuildKit
+    cmds:
+      - >
+        DOCKER_BUILDKIT=1 docker build
+        --build-arg UV_VERSION="{{.UV_VERSION}}"
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:latest
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:{{.GIT_SHA_VERSION}}
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:uv-{{.UV_VERSION}}
+        -f {{.TASKFILE_DIR}}/{{.DOCKERFILE}}
+        {{.TASKFILE_DIR}}
+
+  build_docker_no_cache:
+    desc: Build GHCR image without cache (BuildKit)
+    cmds:
+      - >
+        DOCKER_BUILDKIT=1 docker build --no-cache
+        --build-arg UV_VERSION="{{.UV_VERSION}}"
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:latest
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:{{.GIT_SHA_VERSION}}
+        -t {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:uv-{{.UV_VERSION}}
+        -f {{.TASKFILE_DIR}}/{{.DOCKERFILE}}
+        {{.TASKFILE_DIR}}
+
+  push_docker:
+    desc: Push GHCR tags (requires docker login ghcr.io)
+    cmds:
+      - docker push {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:latest
+      - docker push {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:{{.GIT_SHA_VERSION}}
+      - docker push {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE_NAME}}:uv-{{.UV_VERSION}}
+
+  publish_docker:
+    desc: Build then push GHCR images (sequential; not parallel deps)
+    cmds:
+      - task build_docker
+      - task push_docker
