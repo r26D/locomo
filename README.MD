@@ -44,6 +44,8 @@ Run LoCoMo in a container so dependencies match `uv.lock` (the `uv` binary in th
 
 Install [Task](https://taskfile.dev/installation/) for `task docker:*` commands.
 
+For a **prep checklist**, smoke-test flow (~50 QA), and RAG pickle naming (important before wiring an external memory system), see [docs/BENCHMARK_PREP.md](docs/BENCHMARK_PREP.md).
+
 ### Python environment
 Dependencies are declared in `pyproject.toml`. From the repo root, run `uv sync` (see [uv](https://github.com/astral-sh/uv)). For Hugging Face evaluation extras (accelerate, peft; bitsandbytes is omitted on macOS), use `uv sync --extra eval-hf`. The previous conda export is kept as `requirements-conda-legacy.txt` for reference. Gemini evaluation uses the [`google-genai`](https://pypi.org/project/google-genai/) client (not the older `google-generativeai` package). Optional API keys (`LOCOMO_OPENAI_API_KEY`, `LOCOMO_GOOGLE_API_KEY`, `LOCOMO_ANTHROPIC_API_KEY`, `LOCOMO_HF_TOKEN`), model overrides, and a note on BLIP captions across GPU backends are documented in `scripts/env.sh`.
 
